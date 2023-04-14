@@ -9,49 +9,51 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bjornarsk/funtemps/conv"
+	"github.com/kjetilnym0en/funtemps/conv"
 )
 
 func ConvertTemperature() {
-	overwriteFile := checkFileExists()
-	if !overwriteFile {
-		fmt.Println("Går tilbake til hovedmeny")
+	if !outputFileDoesNotExist() {
+		fmt.Println("Du valgte å ikke opprette filen på nytt")
 		return
 	}
 
-	inputFile := openInputFile()
-	defer inputFile.Close()
+	File, err := os.Open("kjevik-temp-celsius-20220318-20230318.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer File.Close()
 
 	outputFile, err := createOutputFile()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer outputFile.Close()
 
-	outputWriter := bufio.NewWriter(outputFile)
+	outputFileWriter := bufio.NewWriter(outputFile)
 
-	scanner := bufio.NewScanner(inputFile)
+	scanner := bufio.NewScanner(File)
 
 	if scanner.Scan() {
-		_, err := outputWriter.WriteString(scanner.Text() + "\n")
+		_, err := outputFileWriter.WriteString(scanner.Text() + "\n")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 	for scanner.Scan() {
+		// Leser inn en linje fra input-fil, og lagrer i variabelen "line"
 		line := scanner.Text()
 
-		// Prosesser input-linje
-		outputLine := ProcessLine(line)
-
-		// Skriv ferdig prosessert input linje til output-fil
-		_, err := outputWriter.WriteString(outputLine + "\n")
+		// Leser linje fra input-fil, og lager linje output-fil
+		_, err := outputFileWriter.WriteString(ReadInputLine(line) + "\n")
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	outputWriter.Flush()
+	outputFileWriter.Flush()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,17 +62,17 @@ func ConvertTemperature() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Ferdig!")
+	fmt.Printf("Filen %s med temperaturer i Fahrenheit er opprettet \n", outputFile.Name())
 }
 
-func checkFileExists() bool {
+// Sjekker om output-filen finnes fra før. Hvis filen ikke finnes fra før, returnerer den true.
+func outputFileDoesNotExist() bool {
 	if _, err := os.Stat("kjevik-temp-fahr-20220318-20230318.csv"); err == nil {
-		fmt.Print("Filen eksisterer allerede. Vil du generere filen på nytt? (j/n): ")
-		var overwriteInput string
-		fmt.Scanln(&overwriteInput)
-		if strings.ToLower(overwriteInput) == "j" {
-			err := os.Remove("kjevik-temp-fahr-20220318-20230318.csv")
-			if err != nil {
+		fmt.Print("Filen finnes fra før. Vil du at filen skal opprettes på nytt? (j/n): ")
+		var replaceFileInput string
+		fmt.Scanln(&replaceFileInput)
+		if strings.ToLower(replaceFileInput) == "j" {
+			if err := os.Remove("kjevik-temp-fahr-20220318-20230318.csv"); err != nil {
 				log.Fatal(err)
 			}
 			return true
@@ -80,20 +82,11 @@ func checkFileExists() bool {
 	return true
 }
 
-func openInputFile() *os.File {
-	file, err := os.Open("kjevik-temp-celsius-20220318-20230318.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	return file
-}
-
 func createOutputFile() (*os.File, error) {
 	outputFilePath := "kjevik-temp-fahr-20220318-20230318.csv"
 	if _, err := os.Stat(outputFilePath); err == nil {
 		fmt.Printf("File %s already exists. Deleting...\n", outputFilePath)
-		err := os.Remove(outputFilePath)
-		if err != nil {
+		if err := os.Remove(outputFilePath); err != nil {
 			return nil, fmt.Errorf("could not delete file: %v", err)
 		}
 	}
@@ -104,7 +97,7 @@ func createOutputFile() (*os.File, error) {
 	return outputFile, nil
 }
 
-func ProcessLine(line string) string {
+func ReadInputLine(line string) string {
 	if line == "" {
 		return ""
 	}
@@ -126,35 +119,22 @@ func ProcessLine(line string) string {
 		fields[len(fields)-1] = convertedField
 	}
 	if line[0:7] == "Data er" {
-		return "Data er basert på gyldig data (per 18.03.2023) (CC BY 4.0) fra Meteorologisk institutt (MET);endringen er gjort av Bjørnar"
+		return "Data er basert på gyldig data (per 18.03.2023) (CC BY 4.0) fra Meteorologisk institutt (MET);endringen er gjort av Kjetil"
 	} else {
 		return strings.Join(fields, ";")
 	}
 }
 
-func convertLastField(lastField string) (string, error) {
-	// Konvertere siste tallet i en linje til float-type
-	celsius, err := strconv.ParseFloat(lastField, 64)
-	if err != nil {
-		return "", err
-	}
-
-	// Konverterer celsius til fahrenheit
-	fahrenheit := conv.CelsiusToFahrenheit(celsius)
-
-	// Konverterer float-verdien i fahrenheit tilbake til en string, som var den originale typen.
-	return fmt.Sprintf("%.1f", fahrenheit), nil
-}
-
 func AverageTemperature() {
-	// Åpne input-fil
+	// Åpner input-filen
 	file, err := os.Open("kjevik-temp-celsius-20220318-20230318.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer file.Close()
 
-	// lese linjene fra fila
+	// leser alle linjene fra filen
 	scanner := bufio.NewScanner(file)
 
 	var lines []string
@@ -166,12 +146,12 @@ func AverageTemperature() {
 		log.Fatal(err)
 	}
 
-	// Be brukeren om å skrive gjennomsnittlig temperatur i celsius eller fahrenheit
+	// Ber brukeren om å velge om de vil ha gjennomsnittlig temperatur i celsius eller fahrenheit
 	fmt.Println("Velg temperaturenhet (celsius/fahr):")
 	var unit string
 	fmt.Scan(&unit)
 
-	// Regne ut gjennomsnittlig temperatur
+	// Regner ut den gjennomsnittlige temperaturen
 	var sum float64
 	count := 0
 	for i, line := range lines {
@@ -191,7 +171,7 @@ func AverageTemperature() {
 		}
 
 		if unit == "fahr" {
-			// Konverterer tilbake til fahrenheit om det var det brukeren skrev inn
+			// Kaller på metode som konverterer temperaturen tilbake til fahrenheit fra celcuis igjen, om det var det brukeren valgte
 			temperature = conv.CelsiusToFahrenheit(temperature)
 		}
 		sum += temperature
@@ -208,25 +188,46 @@ func AverageTemperature() {
 	}
 }
 
-// Funksjon som teller linjer i en fil
+/*
+// Funksjon som henter gjennomsnittstemperaturen
 
-func CountLines(inputFile string) int {
-	file, err := os.Open(inputFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	countedLines := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line != "" {
-			countedLines++
+	func GetAverageTemperature(filepath string, unit string) (string, error) {
+		file, err := os.Open(filepath)
+		if err != nil {
+			return "", err
 		}
-	}
-	return countedLines
-}
 
+		defer file.Close()
+
+		var sum float64
+		count := 0
+		scanner := bufio.NewScanner(file)
+		for i := 0; scanner.Scan(); i++ {
+			if i == 0 {
+				continue
+			}
+			fields := strings.Split(scanner.Text(), ";")
+			if len(fields) != 4 {
+				return "", fmt.Errorf("unexpected number of fields in line %d: %d", i, len(fields))
+			}
+			if fields[3] == "" {
+				continue
+			}
+			temperature, err := strconv.ParseFloat(fields[3], 64)
+			if err != nil {
+				return "", fmt.Errorf("could not parse temperature in line %d: %s", i, err)
+			}
+
+			if unit == "fahr" {
+				temperature = conv.CelsiusToFahrenheit(temperature)
+			}
+			sum += temperature
+			count++
+		}
+		average := sum / float64(count)
+		return fmt.Sprintf("%.2f", average), nil
+	}
+*/
 func GetAverageTemperature(filepath string, unit string) (string, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -237,28 +238,57 @@ func GetAverageTemperature(filepath string, unit string) (string, error) {
 	var sum float64
 	count := 0
 	scanner := bufio.NewScanner(file)
-	for i := 0; scanner.Scan(); i++ {
-		if i == 0 {
-			continue
-		}
+	for scanner.Scan() {
 		fields := strings.Split(scanner.Text(), ";")
-		if len(fields) != 4 {
-			return "", fmt.Errorf("unexpected number of fields in line %d: %d", i, len(fields))
-		}
-		if fields[3] == "" {
+		if len(fields) != 4 || fields[3] == "" {
 			continue
 		}
 		temperature, err := strconv.ParseFloat(fields[3], 64)
 		if err != nil {
-			return "", fmt.Errorf("could not parse temperature in line %d: %s", i, err)
+			return "", fmt.Errorf("could not parse temperature: %w", err)
 		}
-
 		if unit == "fahr" {
 			temperature = conv.CelsiusToFahrenheit(temperature)
 		}
 		sum += temperature
 		count++
 	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("could not read file: %w", err)
+	}
 	average := sum / float64(count)
 	return fmt.Sprintf("%.2f", average), nil
+}
+
+// Funksjon som teller linjer i en fil for yr_test
+func LineCounter(File string) int {
+	file, err := os.Open(File)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	NumberOfLines := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line != "" {
+			NumberOfLines++
+		}
+	}
+	return NumberOfLines
+}
+
+func convertLastField(lastField string) (string, error) {
+	// Konverterer det siste tallet på en linje til datatypen float.
+	celsius, err := strconv.ParseFloat(lastField, 64)
+	if err != nil {
+		return "", err
+	}
+
+	// Kaller på metode som konverterer celsius til fahrenheit
+	fahrenheit := conv.CelsiusToFahrenheit(celsius)
+
+	// Konverterer fahrenheit float-verdien tilbake til en string, som var dens opprinnelige type.
+	return fmt.Sprintf("%.1f", fahrenheit), nil
 }

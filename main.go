@@ -21,26 +21,25 @@ func main() {
 		input = scanner.Text()
 
 		switch input {
-		case "q", "exit":
-			fmt.Println("exit")
+		case "exit", "q":
+			fmt.Println("Avslutter")
 			return
 
-		case "convert":
-			fmt.Println("Konverterer alle målingene gitt i grader Celsius til grader Fahrenheit...")
-			// funksjon som gjør åpner fil, leser linjer, gjør endringer og lagrer nye linjer i en ny fil
+		case "convert", "c":
+			fmt.Println("Konverterer alle målingene gitt i grader Celsius til grader Fahrenheit")
+
+			// En funksjon som åpner en fil, leser linjer og gjør endringer, og deretter lagrer de endrede linjene i en ny fil.
 			yr.ConvertTemperature()
 
-		case "average":
-			fmt.Println("Gjennomsnitt-kalkulator")
+		case "average", "a":
+			fmt.Println("Viser gjennomsnitt av temperatur")
 
 			for {
-				// funksjon som deler opp datalinjene for å single ut det siste tallet, som er temperatur i celsius.
-				// Funksjonen tar så alle de siste tallene i filen og regner ut gjennomnsnitt i enten celsius eller fahr.
 				yr.AverageTemperature()
 
 				var input2 string
 				scanjn := bufio.NewScanner(os.Stdin)
-				fmt.Println("Tilbake til hovedmeny? (j/n)")
+				fmt.Println("Vil du tilbake til hovedmenyen? (j/n)")
 				for scanjn.Scan() {
 					input2 = scanjn.Text()
 					if input2 == "j" {
@@ -55,5 +54,5 @@ func main() {
 			}
 		}
 	}
-	fmt.Println("Avslutter program.")
+	fmt.Println("Konverteringsprogram avsluttet")
 }
